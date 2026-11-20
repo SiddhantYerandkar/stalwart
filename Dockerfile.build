@@ -119,8 +119,9 @@ RUN \
     cargo chef cook --recipe-path recipe.json --zigbuild --release --target ${TARGET} -p stalwart --no-default-features --features "sqlite postgres mysql rocks s3 redis azure nats enterprise"
 # Copy the source code
 COPY . .
-ENV RUSTC_WRAPPER="sccache" \
-    SCCACHE_GHA_ENABLED=true
+# sccache's GHA backend only works inside an actual GitHub Actions runner
+# (it needs ACTIONS_RESULTS_URL/ACTIONS_RUNTIME_TOKEN, which don't exist here)
+# — plain rustc, no wrapper, for a local one-off build.
 # Build FoundationDB version
 RUN \
     --mount=type=secret,id=ACTIONS_RESULTS_URL,env=ACTIONS_RESULTS_URL \
@@ -139,7 +140,8 @@ RUN \
     --mount=type=cache,target=/usr/local/cargo/registry \
     --mount=type=cache,target=/usr/local/cargo/git \
     source /env-cargo && \
-    cargo zigbuild --release --target ${TARGET} -p stalwart --no-default-features --features "sqlite postgres mysql rocks s3 redis azure nats enterprise" && \
+    export CARGO_PROFILE_RELEASE_LTO=false CARGO_PROFILE_RELEASE_CODEGEN_UNITS=16 && \
+    cargo zigbuild --release --target ${TARGET} -p stalwart --no-default-features --features "sqlite postgres mysql rocks s3 redis azure nats enterprise" -j 2 && \
     mv /app/target/${TARGET}/release/stalwart /app/artifact/stalwart
 
 # *****************

@@ -230,9 +230,19 @@ pub(crate) async fn account_set(
                             }
 
                             let current_otp_code = account_pass.otp_auth.otp_code;
+                            // Verify the submitted code against whichever secret it's meant
+                            // to prove: the existing one, if there is one (re-authenticating
+                            // before a password/OTP change, or before disabling OTP) — or,
+                            // when there's no existing secret, the new one just being
+                            // enrolled (otherwise a freshly-scanned, correct code is never
+                            // actually checked against anything on first-time setup).
+                            let otp_auth_to_verify = old_credential
+                                .otp_auth
+                                .as_deref()
+                                .or(account_pass.otp_auth.otp_url.as_deref());
                             if let Some(current_secret) = account_pass.current_secret {
                                 match verify_mfa_secret_hash(
-                                    old_credential.otp_auth.as_deref(),
+                                    otp_auth_to_verify,
                                     current_otp_code.as_deref(),
                                     &old_credential.secret,
                                     current_secret.as_ref(),
